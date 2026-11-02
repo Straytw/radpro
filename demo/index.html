@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rad Pro | Game Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">R</div>
+          <div>
+            <div class="eyebrow">Rad Pro</div>
+            <h1>Game mode</h1>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="ghost-btn">Theme</button>
+          <button class="primary-btn">Play</button>
+        </div>
+      </header>
+
+      <main class="content-grid">
+        <aside class="side-panel">
+          <div class="panel-header">
+            <span>Modes</span>
+            <span class="pill">2</span>
+          </div>
+
+          <div class="mode-list" id="modeList">
+            <button class="mode-card active" data-mode="chess" type="button">
+              <span class="mode-icon chess">♟</span>
+              <span>
+                <strong>Chess</strong>
+                <small>Classic board</small>
+              </span>
+            </button>
+
+            <button class="mode-card" data-mode="tetris" type="button">
+              <span class="mode-icon tetris">▣</span>
+              <span>
+                <strong>Tetris</strong>
+                <small>Fast falling blocks</small>
+              </span>
+            </button>
+          </div>
+
+          <div class="info-card">
+            <label>Difficulty</label>
+            <div class="segmented-control">
+              <button class="seg active" type="button">Easy</button>
+              <button class="seg" type="button">Normal</button>
+              <button class="seg" type="button">Hard</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="board-panel">
+          <div class="board-toolbar">
+            <div class="status-group">
+              <span class="status-dot"></span>
+              <span id="statusText">Chess</span>
+            </div>
+            <div class="stats">
+              <div class="stat-box">
+                <label>Time</label>
+                <strong id="timeValue">03:22</strong>
+              </div>
+              <div class="stat-box">
+                <label>Score</label>
+                <strong id="scoreValue">0</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="board-wrap">
+            <div id="gameBoard" class="game-board" aria-label="Game board"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
