@@ -15,9 +15,71 @@ const chessPieces = {
   }
 };
 
+const TETRIS_COLS = 10;
+const TETRIS_ROWS = 18;
+
+const tetrominoes = [
+  {
+    type: 'I',
+    color: '#8ab4f8',
+    matrix: [
+      [1, 1, 1, 1]
+    ]
+  },
+  {
+    type: 'O',
+    color: '#fdd663',
+    matrix: [
+      [1, 1],
+      [1, 1]
+    ]
+  },
+  {
+    type: 'T',
+    color: '#9aa0a6',
+    matrix: [
+      [0, 1, 0],
+      [1, 1, 1]
+    ]
+  },
+  {
+    type: 'S',
+    color: '#81c995',
+    matrix: [
+      [0, 1, 1],
+      [1, 1, 0]
+    ]
+  },
+  {
+    type: 'Z',
+    color: '#f28b82',
+    matrix: [
+      [1, 1, 0],
+      [0, 1, 1]
+    ]
+  },
+  {
+    type: 'J',
+    color: '#8ab4f8',
+    matrix: [
+      [1, 0, 0],
+      [1, 1, 1]
+    ]
+  },
+  {
+    type: 'L',
+    color: '#c4a7f5',
+    matrix: [
+      [0, 0, 1],
+      [1, 1, 1]
+    ]
+  }
+];
+
 const state = {
   mode: 'chess',
   score: 0,
+  lines: 0,
   time: 202,
   chessBoard: [
     ['black-rook', 'black-knight', 'black-bishop', 'black-queen', 'black-king', 'black-bishop', 'black-knight', 'black-rook'],
@@ -29,26 +91,159 @@ const state = {
     Array(8).fill('white-pawn'),
     ['white-rook', 'white-knight', 'white-bishop', 'white-queen', 'white-king', 'white-bishop', 'white-knight', 'white-rook']
   ],
-  tetrisBoard: Array.from({ length: 8 }, () => Array(8).fill('')),
-  fallingTetrimino: null,
-  activeCell: null,
-  selectedColor: 'light'
+  tetrisBoard: Array.from({ length: TETRIS_ROWS }, () => Array(TETRIS_COLS).fill(null)),
+  currentPiece: null,
+  gameOver: false,
+  activeCell: null
 };
-
-const tetrominoes = [
-  { type: 'I', color: '#8ab4f8', cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { type: 'L', color: '#fdd663', cells: [[0,0],[0,1],[1,1],[2,1]] },
-  { type: 'J', color: '#81c995', cells: [[2,0],[0,1],[1,1],[2,1]] },
-  { type: 'O', color: '#f28b82', cells: [[0,0],[1,0],[0,1],[1,1]] },
-  { type: 'T', color: '#9aa0a6', cells: [[1,0],[0,1],[1,1],[2,1]] },
-  { type: 'S', color: '#8ab4f8', cells: [[1,0],[2,0],[0,1],[1,1]] },
-  { type: 'Z', color: '#f28b82', cells: [[0,0],[1,0],[1,1],[2,1]] }
-];
 
 function formatTime(value) {
   const minutes = String(Math.floor(value / 60)).padStart(2, '0');
   const seconds = String(value % 60).padStart(2, '0');
   return `${minutes}:${seconds}`;
+}
+
+function cloneMatrix(matrix) {
+  return matrix.map((row) => [...row]);
+}
+
+function createPiece() {
+  const template = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
+  const matrix = cloneMatrix(template.matrix);
+
+  return {
+    type: template.type,
+    color: template.color,
+    matrix,
+    x: Math.floor((TETRIS_COLS - matrix[0].length) / 2),
+    y: -1
+  };
+}
+
+function collides(piece, offsetX = 0, offsetY = 0, nextMatrix = piece.matrix) {
+  for (let y = 0; y < nextMatrix.length; y++) {
+    for (let x = 0; x < nextMatrix[y].length; x++) {
+      if (!nextMatrix[y][x]) continue;
+
+      const boardX = piece.x + x + offsetX;
+      const boardY = piece.y + y + offsetY;
+
+      if (boardX < 0 || boardX >= TETRIS_COLS || boardY >= TETRIS_ROWS) {
+        return true;
+      }
+
+      if (boardY >= 0 && state.tetrisBoard[boardY][boardX]) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function rotateMatrix(matrix) {
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  const rotated = Array.from({ length: cols }, () => Array(rows).fill(0));
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      rotated[x][rows - 1 - y] = matrix[y][x];
+    }
+  }
+
+  return rotated;
+}
+
+function mergePiece() {
+  if (!state.currentPiece) return;
+
+  for (let y = 0; y < state.currentPiece.matrix.length; y++) {
+    for (let x = 0; x < state.currentPiece.matrix[y].length; x++) {
+      if (!state.currentPiece.matrix[y][x]) continue;
+
+      const boardX = state.currentPiece.x + x;
+      const boardY = state.currentPiece.y + y;
+
+      if (boardY >= 0) {
+        state.tetrisBoard[boardY][boardX] = state.currentPiece.color;
+      }
+    }
+  }
+}
+
+function clearLines() {
+  let removed = 0;
+
+  for (let y = TETRIS_ROWS - 1; y >= 0; y--) {
+    if (state.tetrisBoard[y].every(Boolean)) {
+      state.tetrisBoard.splice(y, 1);
+      state.tetrisBoard.unshift(Array(TETRIS_COLS).fill(null));
+      removed += 1;
+      y += 1;
+    }
+  }
+
+  if (removed > 0) {
+    state.lines += removed;
+    state.score += removed * 100;
+  }
+}
+
+function spawnPiece() {
+  state.currentPiece = createPiece();
+  if (collides(state.currentPiece, 0, 0)) {
+    state.gameOver = true;
+  }
+}
+
+function movePiece(dx, dy) {
+  if (!state.currentPiece || state.gameOver) return;
+
+  const nextX = state.currentPiece.x + dx;
+  const nextY = state.currentPiece.y + dy;
+
+  if (!collides(state.currentPiece, dx, dy)) {
+    state.currentPiece.x = nextX;
+    state.currentPiece.y = nextY;
+    renderBoard();
+    return;
+  }
+
+  if (dy > 0) {
+    mergePiece();
+    clearLines();
+    spawnPiece();
+    renderBoard();
+  }
+}
+
+function rotatePiece() {
+  if (!state.currentPiece || state.gameOver) return;
+
+  const rotated = rotateMatrix(state.currentPiece.matrix);
+
+  if (!collides(state.currentPiece, 0, 0, rotated)) {
+    state.currentPiece.matrix = rotated;
+  } else if (!collides(state.currentPiece, 1, 0, rotated)) {
+    state.currentPiece.x += 1;
+    state.currentPiece.matrix = rotated;
+  } else if (!collides(state.currentPiece, -1, 0, rotated)) {
+    state.currentPiece.x -= 1;
+    state.currentPiece.matrix = rotated;
+  }
+
+  renderBoard();
+}
+
+function stepTetris() {
+  if (state.mode !== 'tetris' || state.gameOver) return;
+
+  if (!state.currentPiece) {
+    spawnPiece();
+  }
+
+  movePiece(0, 1);
 }
 
 function setMode(mode) {
@@ -58,31 +253,24 @@ function setMode(mode) {
   });
   statusTextEl.textContent = mode === 'chess' ? 'Chess' : 'Tetris';
 
-  if (mode === 'tetris') {
-    generateTetrimino();
+  if (mode === 'tetris' && !state.currentPiece) {
+    spawnPiece();
   }
 
   renderBoard();
 }
 
-function generateTetrimino() {
-  const template = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
-  state.fallingTetrimino = {
-    ...template,
-    x: 2,
-    y: 0
-  };
-}
-
 function drawChessCell(value, x, y) {
   const piece = value || '';
   const colorClass = piece.includes('white') ? 'white' : piece.includes('black') ? 'black' : '';
-  const label = piece ? (piece.includes('pawn') ? chessPieces[piece.includes('white') ? 'white' : 'black'].pawn :
+  const label = piece ? (
+    piece.includes('pawn') ? chessPieces[piece.includes('white') ? 'white' : 'black'].pawn :
     piece.includes('rook') ? chessPieces[piece.includes('white') ? 'white' : 'black'].rook :
     piece.includes('knight') ? chessPieces[piece.includes('white') ? 'white' : 'black'].knight :
     piece.includes('bishop') ? chessPieces[piece.includes('white') ? 'white' : 'black'].bishop :
     piece.includes('queen') ? chessPieces[piece.includes('white') ? 'white' : 'black'].queen :
-    chessPieces[piece.includes('white') ? 'white' : 'black'].king) : '';
+    chessPieces[piece.includes('white') ? 'white' : 'black'].king
+  ) : '';
 
   const cell = document.createElement('div');
   cell.className = `cell ${((x + y) % 2 === 0) ? 'light' : 'dark'} ${piece ? 'chess-piece' : ''} ${colorClass}`.trim();
@@ -90,23 +278,29 @@ function drawChessCell(value, x, y) {
   return cell;
 }
 
-function drawTetrisCell(item, x, y) {
+function drawTetrisCell(x, y) {
   const cell = document.createElement('div');
-  const isFilled = !!item;
-  const active = state.fallingTetrimino && state.fallingTetrimino.cells.some(([cx, cy]) => {
-    return x === state.fallingTetrimino.x + cx && y === state.fallingTetrimino.y + cy;
-  });
+  const boardValue = state.tetrisBoard[y]?.[x] || null;
+  const activeValue = state.currentPiece && state.currentPiece.matrix[y - state.currentPiece.y]?.[x - state.currentPiece.x];
+  const fillColor = boardValue || (activeValue ? state.currentPiece.color : null);
 
-  cell.className = `cell ${((x + y) % 2 === 0) ? 'light' : 'dark'} ${isFilled || active ? 'tetris-piece' : ''}`.trim();
-  if (isFilled || active) {
-    cell.style.background = item || state.fallingTetrimino.color;
+  const classes = ['cell'];
+  classes.push((x + y) % 2 === 0 ? 'light' : 'dark');
+  if (fillColor) classes.push('tetris-piece');
+
+  cell.className = classes.join(' ');
+  if (fillColor) {
+    cell.style.background = fillColor;
     cell.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.08)';
   }
+
   return cell;
 }
 
 function renderBoard() {
   boardEl.innerHTML = '';
+  boardEl.classList.toggle('tetris-board', state.mode === 'tetris');
+  boardEl.classList.toggle('chess-board', state.mode === 'chess');
 
   if (state.mode === 'chess') {
     state.chessBoard.forEach((row, y) => {
@@ -119,9 +313,9 @@ function renderBoard() {
       });
     });
   } else {
-    for (let y = 0; y < 8; y++) {
-      for (let x = 0; x < 8; x++) {
-        const cell = drawTetrisCell(state.tetrisBoard[y][x], x, y);
+    for (let y = 0; y < TETRIS_ROWS; y++) {
+      for (let x = 0; x < TETRIS_COLS; x++) {
+        const cell = drawTetrisCell(x, y);
         boardEl.appendChild(cell);
       }
     }
@@ -131,41 +325,6 @@ function renderBoard() {
   timeValueEl.textContent = formatTime(state.time);
 }
 
-function moveTetrimino(dx, dy) {
-  if (!state.fallingTetrimino) return;
-
-  const next = state.fallingTetrimino.cells.map(([cx, cy]) => [state.fallingTetrimino.x + cx + dx, state.fallingTetrimino.y + cy + dy]);
-  const isValid = next.every(([x, y]) => x >= 0 && x < 8 && y >= 0 && y < 8 && !state.tetrisBoard[y][x]);
-
-  if (!isValid) {
-    if (dy > 0) {
-      state.fallingTetrimino.cells.forEach(([cx, cy]) => {
-        const px = state.fallingTetrimino.x + cx;
-        const py = state.fallingTetrimino.y + cy;
-        if (py >= 0 && py < 8) {
-          state.tetrisBoard[py][px] = state.fallingTetrimino.color;
-        }
-      });
-      state.score += 10;
-      generateTetrimino();
-    }
-    return;
-  }
-
-  state.fallingTetrimino.x += dx;
-  state.fallingTetrimino.y += dy;
-  renderBoard();
-}
-
-function stepTetris() {
-  if (state.mode !== 'tetris') return;
-  moveTetrimino(0, 1);
-}
-
-modeButtons.forEach((button) => {
-  button.addEventListener('click', () => setMode(button.dataset.mode));
-});
-
 segmentButtons.forEach((button) => {
   button.addEventListener('click', () => {
     segmentButtons.forEach((item) => item.classList.remove('active'));
@@ -173,12 +332,34 @@ segmentButtons.forEach((button) => {
   });
 });
 
+modeButtons.forEach((button) => {
+  button.addEventListener('click', () => setMode(button.dataset.mode));
+});
+
 document.addEventListener('keydown', (event) => {
   if (state.mode === 'tetris') {
-    if (event.key === 'ArrowLeft') moveTetrimino(-1, 0);
-    if (event.key === 'ArrowRight') moveTetrimino(1, 0);
-    if (event.key === 'ArrowDown') moveTetrimino(0, 1);
-    if (event.key === 'ArrowUp') generateTetrimino();
+    switch (event.key) {
+      case 'ArrowLeft':
+        movePiece(-1, 0);
+        break;
+      case 'ArrowRight':
+        movePiece(1, 0);
+        break;
+      case 'ArrowDown':
+        movePiece(0, 1);
+        break;
+      case 'ArrowUp':
+        rotatePiece();
+        break;
+      case ' ':
+        while (!collides(state.currentPiece, 0, 1)) {
+          state.currentPiece.y += 1;
+        }
+        movePiece(0, 1);
+        break;
+      default:
+        break;
+    }
   }
 });
 
@@ -189,6 +370,6 @@ setInterval(() => {
     state.time = (state.time + 1) % 3600;
   }
   renderBoard();
-}, 600);
+}, 550);
 
-renderBoard();
+setMode('chess');
